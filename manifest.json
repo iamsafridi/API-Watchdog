@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "API Watchdog",
+  "version": "1.0.0",
+  "description": "Monitor API calls, detect security issues, and generate test cases automatically",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "webRequest",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://*.local/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "devtools_page": "devtools.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
