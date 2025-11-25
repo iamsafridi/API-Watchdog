@@ -233,9 +233,184 @@ function showApiDetails(index) {
         `).join('')}
       </div>
     ` : ''}
+    
+    <div style="margin-bottom: 20px;">
+      <h3 style="color: #fff;">🔄 Replay Request</h3>
+      <p style="color: #aaa; font-size: 12px; margin-bottom: 10px;">Edit and resend this API request</p>
+      
+      <div style="margin-bottom: 10px;">
+        <label style="color: #aaa; font-size: 12px; display: block; margin-bottom: 5px;">URL:</label>
+        <input type="text" id="replayUrl" value="${call.url}" style="width: 100%; padding: 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-family: monospace; font-size: 12px;">
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <label style="color: #aaa; font-size: 12px; display: block; margin-bottom: 5px;">Method:</label>
+        <select id="replayMethod" style="padding: 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px;">
+          <option value="GET" ${call.method === 'GET' ? 'selected' : ''}>GET</option>
+          <option value="POST" ${call.method === 'POST' ? 'selected' : ''}>POST</option>
+          <option value="PUT" ${call.method === 'PUT' ? 'selected' : ''}>PUT</option>
+          <option value="DELETE" ${call.method === 'DELETE' ? 'selected' : ''}>DELETE</option>
+          <option value="PATCH" ${call.method === 'PATCH' ? 'selected' : ''}>PATCH</option>
+        </select>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <label style="color: #aaa; font-size: 12px; display: block; margin-bottom: 5px;">🔑 Authorization Token (Bearer):</label>
+        <input type="text" id="replayToken" placeholder="Paste your token here (will be added as Bearer token)" style="width: 100%; padding: 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-family: monospace; font-size: 12px;">
+        <small style="color: #666; font-size: 11px;">Optional - Leave empty if not needed</small>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <label style="color: #aaa; font-size: 12px; display: block; margin-bottom: 5px;">Headers (JSON):</label>
+        <textarea id="replayHeaders" style="width: 100%; height: 100px; padding: 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-family: monospace; font-size: 12px;">${JSON.stringify(call.responseHeaders?.reduce((acc, h) => ({ ...acc, [h.name]: h.value }), {}) || {}, null, 2)}</textarea>
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <label style="color: #aaa; font-size: 12px; display: block; margin-bottom: 5px;">Body (JSON):</label>
+        <textarea id="replayBody" style="width: 100%; height: 150px; padding: 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-family: monospace; font-size: 12px;">${call.requestBody ? JSON.stringify(call.requestBody, null, 2) : ''}</textarea>
+      </div>
+      
+      <div style="display: flex; gap: 10px;">
+        <button id="replayBtn" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🚀 Send Request</button>
+        <button id="copyCurlBtn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">📋 Copy as cURL</button>
+      </div>
+      
+      <div id="replayResult" style="margin-top: 15px; padding: 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; display: none;">
+        <h4 style="color: #fff; margin: 0 0 10px 0;">Response:</h4>
+        <div id="replayResultContent"></div>
+      </div>
+    </div>
   `;
   
   modal.style.display = 'block';
+  
+  // Setup replay button
+  document.getElementById('replayBtn').addEventListener('click', () => replayRequest(call));
+  document.getElementById('copyCurlBtn').addEventListener('click', () => copyCurl(call));
+}
+
+function replayRequest(originalCall) {
+  const url = document.getElementById('replayUrl').value;
+  const method = document.getElementById('replayMethod').value;
+  const token = document.getElementById('replayToken').value;
+  const headersText = document.getElementById('replayHeaders').value;
+  const bodyText = document.getElementById('replayBody').value;
+  
+  const resultDiv = document.getElementById('replayResult');
+  const resultContent = document.getElementById('replayResultContent');
+  
+  resultDiv.style.display = 'block';
+  resultContent.innerHTML = '<p style="color: #aaa;">⏳ Sending request...</p>';
+  
+  try {
+    // Parse headers
+    let headers = {};
+    if (headersText.trim()) {
+      try {
+        headers = JSON.parse(headersText);
+      } catch (e) {
+        resultContent.innerHTML = '<p style="color: #f85149;">❌ Invalid JSON in headers</p>';
+        return;
+      }
+    }
+    
+    // Add Authorization token if provided
+    if (token.trim()) {
+      headers['Authorization'] = `Bearer ${token.trim()}`;
+    }
+    
+    // Parse body
+    let body = null;
+    if (bodyText.trim() && method !== 'GET') {
+      try {
+        body = JSON.parse(bodyText);
+      } catch (e) {
+        resultContent.innerHTML = '<p style="color: #f85149;">❌ Invalid JSON in body</p>';
+        return;
+      }
+    }
+    
+    // Make request
+    const startTime = performance.now();
+    const options = {
+      method: method,
+      headers: headers,
+      credentials: 'include'
+    };
+    
+    if (body && method !== 'GET') {
+      options.body = JSON.stringify(body);
+      if (!headers['Content-Type']) {
+        options.headers['Content-Type'] = 'application/json';
+      }
+    }
+    
+    fetch(url, options)
+      .then(response => {
+        const duration = Math.round(performance.now() - startTime);
+        const statusClass = Math.floor(response.status / 100);
+        const statusColor = statusClass === 2 ? '#3fb950' : statusClass === 4 ? '#f85149' : '#d29922';
+        
+        return response.text().then(text => {
+          let jsonData = null;
+          try {
+            jsonData = JSON.parse(text);
+          } catch (e) {
+            jsonData = text;
+          }
+          
+          resultContent.innerHTML = `
+            <div style="margin-bottom: 10px;">
+              <span style="color: ${statusColor}; font-weight: bold;">Status: ${response.status}</span>
+              <span style="color: #aaa; margin-left: 15px;">Duration: ${duration}ms</span>
+            </div>
+            <pre style="background: #161b22; color: #c9d1d9; padding: 10px; border-radius: 4px; overflow: auto; max-height: 300px; margin: 0;">${typeof jsonData === 'string' ? jsonData : JSON.stringify(jsonData, null, 2)}</pre>
+          `;
+        });
+      })
+      .catch(error => {
+        resultContent.innerHTML = `<p style="color: #f85149;">❌ Error: ${error.message}</p>`;
+      });
+  } catch (e) {
+    resultContent.innerHTML = `<p style="color: #f85149;">❌ Error: ${e.message}</p>`;
+  }
+}
+
+function copyCurl(call) {
+  const url = document.getElementById('replayUrl').value;
+  const method = document.getElementById('replayMethod').value;
+  const token = document.getElementById('replayToken').value;
+  const headersText = document.getElementById('replayHeaders').value;
+  const bodyText = document.getElementById('replayBody').value;
+  
+  let curl = `curl -X ${method} "${url}"`;
+  
+  // Add Authorization token if provided
+  if (token.trim()) {
+    curl += ` \\\n  -H "Authorization: Bearer ${token.trim()}"`;
+  }
+  
+  // Add headers
+  try {
+    const headers = JSON.parse(headersText);
+    Object.entries(headers).forEach(([key, value]) => {
+      curl += ` \\\n  -H "${key}: ${value}"`;
+    });
+  } catch (e) {
+    // Ignore invalid headers
+  }
+  
+  // Add body
+  if (bodyText.trim() && method !== 'GET') {
+    curl += ` \\\n  -d '${bodyText.replace(/'/g, "'\\''")}'`;
+  }
+  
+  // Copy to clipboard
+  navigator.clipboard.writeText(curl).then(() => {
+    alert('✅ cURL command copied to clipboard!');
+  }).catch(() => {
+    alert('❌ Failed to copy to clipboard');
+  });
 }
 
 function renderSecurityIssues() {
