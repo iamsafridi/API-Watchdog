@@ -89,7 +89,7 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
             url: url,
             method: method,
             statusCode: request.response?.status || 0,
-            duration: (request.timings?.wait || 0) + (request.timings?.receive || 0),
+            duration: Math.round((request.timings?.wait || 0) + (request.timings?.receive || 0)),
             timestamp: Date.now(),
             responseHeaders: (request.response?.headers || []).map(h => ({
               name: h.name,
