@@ -630,18 +630,223 @@ function exportReport() {
     return;
   }
   
-  const report = {
-    timestamp: new Date().toISOString(),
-    totalCalls: apiCalls.length,
-    apiCalls: apiCalls
-  };
+  // Calculate statistics
+  const totalCalls = apiCalls.length;
+  const allIssues = [];
+  apiCalls.forEach(call => {
+    if (call.securityIssues && Array.isArray(call.securityIssues)) {
+      call.securityIssues.forEach(issue => {
+        allIssues.push({ ...issue, url: call.url, method: call.method });
+      });
+    }
+  });
   
-  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const criticalIssues = allIssues.filter(i => i.severity === 'critical').length;
+  const highIssues = allIssues.filter(i => i.severity === 'high').length;
+  const mediumIssues = allIssues.filter(i => i.severity === 'medium').length;
+  const lowIssues = allIssues.filter(i => i.severity === 'low').length;
+  const slowApis = apiCalls.filter(call => call.duration > 500).length;
+  const healthScore = calculateHealthScore();
+  
+  // Sort issues by severity
+  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  allIssues.sort((a, b) => (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99));
+  
+  // Generate HTML report
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Watchdog Report - ${new Date().toLocaleDateString()}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 40px; border-bottom: 3px solid #007acc; padding-bottom: 20px; }
+    .header h1 { color: #007acc; font-size: 32px; margin-bottom: 10px; }
+    .header .subtitle { color: #666; font-size: 14px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-card.success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .stat-card.warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stat-card.info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stat-value { font-size: 36px; font-weight: bold; margin-bottom: 5px; }
+    .stat-label { font-size: 14px; opacity: 0.9; }
+    .section { margin-bottom: 40px; }
+    .section-title { font-size: 24px; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+    .issue-card { background: #fff; border-left: 4px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .issue-card.critical { border-left-color: #dc3545; background: #fff5f5; }
+    .issue-card.high { border-left-color: #fd7e14; background: #fff8f0; }
+    .issue-card.medium { border-left-color: #ffc107; background: #fffbf0; }
+    .issue-card.low { border-left-color: #6c757d; background: #f8f9fa; }
+    .issue-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .severity-badge { padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .severity-badge.critical { background: #dc3545; color: white; }
+    .severity-badge.high { background: #fd7e14; color: white; }
+    .severity-badge.medium { background: #ffc107; color: #000; }
+    .severity-badge.low { background: #6c757d; color: white; }
+    .issue-type { font-size: 12px; color: #666; font-family: monospace; }
+    .owasp-tag { font-size: 11px; color: #999; margin-left: auto; }
+    .issue-message { color: #333; margin-bottom: 8px; font-size: 14px; }
+    .issue-url { font-size: 12px; color: #666; font-family: monospace; background: #f5f5f5; padding: 5px 8px; border-radius: 3px; display: inline-block; }
+    .recommendation { font-size: 13px; color: #0066cc; margin-top: 8px; padding: 8px; background: #e7f3ff; border-radius: 4px; }
+    .api-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .api-table th { background: #f5f5f5; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #ddd; }
+    .api-table td { padding: 12px; border-bottom: 1px solid #eee; }
+    .api-table tr:hover { background: #f9f9f9; }
+    .method { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .method.GET { background: #4ec9b0; color: #000; }
+    .method.POST { background: #ce9178; color: #000; }
+    .method.PUT { background: #dcdcaa; color: #000; }
+    .method.DELETE { background: #f48771; color: #000; }
+    .method.PATCH { background: #c586c0; color: #000; }
+    .status { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .status.success { background: #4ec9b0; color: #000; }
+    .status.redirect { background: #dcdcaa; color: #000; }
+    .status.client-error { background: #ce9178; color: #000; }
+    .status.server-error { background: #f48771; color: #000; }
+    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #666; font-size: 12px; }
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; }
+      .issue-card { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🐕 API Watchdog Security Report</h1>
+      <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card info">
+        <div class="stat-value">${totalCalls}</div>
+        <div class="stat-label">Total API Calls</div>
+      </div>
+      <div class="stat-card ${allIssues.length === 0 ? 'success' : 'warning'}">
+        <div class="stat-value">${allIssues.length}</div>
+        <div class="stat-label">Security Issues</div>
+      </div>
+      <div class="stat-card ${slowApis === 0 ? 'success' : 'warning'}">
+        <div class="stat-value">${slowApis}</div>
+        <div class="stat-label">Slow APIs (&gt;500ms)</div>
+      </div>
+      <div class="stat-card ${healthScore >= 80 ? 'success' : healthScore >= 50 ? 'warning' : 'warning'}">
+        <div class="stat-value">${healthScore}</div>
+        <div class="stat-label">Health Score</div>
+      </div>
+    </div>
+
+    ${allIssues.length > 0 ? `
+    <div class="section">
+      <h2 class="section-title">🔒 Security Issues Summary</h2>
+      <div class="stats">
+        ${criticalIssues > 0 ? `<div class="stat-card warning"><div class="stat-value">${criticalIssues}</div><div class="stat-label">Critical</div></div>` : ''}
+        ${highIssues > 0 ? `<div class="stat-card warning"><div class="stat-value">${highIssues}</div><div class="stat-label">High</div></div>` : ''}
+        ${mediumIssues > 0 ? `<div class="stat-card warning"><div class="stat-value">${mediumIssues}</div><div class="stat-label">Medium</div></div>` : ''}
+        ${lowIssues > 0 ? `<div class="stat-card info"><div class="stat-value">${lowIssues}</div><div class="stat-label">Low</div></div>` : ''}
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">🚨 Detailed Security Issues</h2>
+      ${allIssues.map(issue => `
+        <div class="issue-card ${issue.severity}">
+          <div class="issue-header">
+            <span class="severity-badge ${issue.severity}">${issue.severity}</span>
+            <span class="issue-type">${issue.type}</span>
+            ${issue.owasp ? `<span class="owasp-tag">${issue.owasp}</span>` : ''}
+          </div>
+          <div class="issue-message">${issue.message}</div>
+          <div class="issue-url">${issue.method} ${issue.url}</div>
+          ${issue.recommendation ? `<div class="recommendation">💡 <strong>Recommendation:</strong> ${issue.recommendation}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ` : '<div class="section"><h2 class="section-title">✅ No Security Issues Detected</h2><p style="color: #28a745; font-size: 18px;">All API calls passed security checks!</p></div>'}
+
+    <div class="section">
+      <h2 class="section-title">📊 API Calls Overview</h2>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Endpoint</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Issues</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${apiCalls.map(call => {
+            const statusClass = call.statusCode >= 200 && call.statusCode < 300 ? 'success' :
+                               call.statusCode >= 300 && call.statusCode < 400 ? 'redirect' :
+                               call.statusCode >= 400 && call.statusCode < 500 ? 'client-error' : 'server-error';
+            return `
+              <tr>
+                <td><span class="method ${call.method}">${call.method}</span></td>
+                <td style="font-family: monospace; font-size: 12px; word-break: break-all;">${call.url}</td>
+                <td><span class="status ${statusClass}">${call.statusCode}</span></td>
+                <td>${call.duration}ms</td>
+                <td>${call.securityIssues?.length || 0}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${slowApis > 0 ? `
+    <div class="section">
+      <h2 class="section-title">⚠️ Performance Issues</h2>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Endpoint</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${apiCalls.filter(call => call.duration > 500).sort((a, b) => b.duration - a.duration).map(call => `
+            <tr>
+              <td><span class="method ${call.method}">${call.method}</span></td>
+              <td style="font-family: monospace; font-size: 12px; word-break: break-all;">${call.url}</td>
+              <td style="color: ${call.duration > 1000 ? '#dc3545' : '#fd7e14'}; font-weight: bold;">${call.duration}ms</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    <div class="footer">
+      <p>Generated by API Watchdog Chrome Extension</p>
+      <p>This report can be printed to PDF using your browser's print function (Ctrl+P / Cmd+P)</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  // Create and download HTML file
+  const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `api-watchdog-${Date.now()}.json`;
+  a.download = `api-watchdog-report-${Date.now()}.html`;
   a.click();
+  URL.revokeObjectURL(url);
+  
+  alert('✅ Report generated! Open the HTML file in your browser.\n\nTip: Use Ctrl+P (Cmd+P) to save as PDF.');
 }
 
 function generateSwagger() {
