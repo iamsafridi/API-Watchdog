@@ -299,7 +299,6 @@ function showApiDetails(index) {
       
       <div style="display: flex; gap: 10px;">
         <button id="replayBtn" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🚀 Send Request</button>
-        <button id="copyCurlBtn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">📋 Copy as cURL</button>
       </div>
       
       <div id="replayResult" style="margin-top: 15px; padding: 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; display: none;">
@@ -313,7 +312,6 @@ function showApiDetails(index) {
   
   // Setup replay button
   document.getElementById('replayBtn').addEventListener('click', () => replayRequest(call));
-  document.getElementById('copyCurlBtn').addEventListener('click', () => copyCurl(call));
 }
 
 function replayRequest(originalCall) {
@@ -403,42 +401,6 @@ function replayRequest(originalCall) {
   }
 }
 
-function copyCurl(call) {
-  const url = document.getElementById('replayUrl').value;
-  const method = document.getElementById('replayMethod').value;
-  const token = document.getElementById('replayToken').value;
-  const headersText = document.getElementById('replayHeaders').value;
-  const bodyText = document.getElementById('replayBody').value;
-  
-  let curl = `curl -X ${method} "${url}"`;
-  
-  // Add Authorization token if provided
-  if (token.trim()) {
-    curl += ` \\\n  -H "Authorization: Bearer ${token.trim()}"`;
-  }
-  
-  // Add headers
-  try {
-    const headers = JSON.parse(headersText);
-    Object.entries(headers).forEach(([key, value]) => {
-      curl += ` \\\n  -H "${key}: ${value}"`;
-    });
-  } catch (e) {
-    // Ignore invalid headers
-  }
-  
-  // Add body
-  if (bodyText.trim() && method !== 'GET') {
-    curl += ` \\\n  -d '${bodyText.replace(/'/g, "'\\''")}'`;
-  }
-  
-  // Copy to clipboard
-  navigator.clipboard.writeText(curl).then(() => {
-    alert('✅ cURL command copied to clipboard!');
-  }).catch(() => {
-    alert('❌ Failed to copy to clipboard');
-  });
-}
 
 function renderSecurityIssues() {
   const container = document.getElementById('securityList');

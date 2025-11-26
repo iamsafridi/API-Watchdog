@@ -114,8 +114,6 @@ Edit and resend API requests:
 5. Click "Send Request" to replay
 6. View the response in real-time
 
-**Copy as cURL**: Export the request as a cURL command for terminal use
-
 ### Export Reports
 Generate professional HTML reports:
 1. Click the **"Export Report"** button
