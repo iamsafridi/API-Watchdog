@@ -229,14 +229,16 @@ function showApiDetails(index) {
         ${(() => {
           // Sort by severity
           const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-          const sortedIssues = [...call.securityIssues].sort((a, b) => 
-            (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99)
-          );
+          const sortedIssues = [...call.securityIssues].sort((a, b) => {
+            const aSev = (a.severity || '').toLowerCase();
+            const bSev = (b.severity || '').toLowerCase();
+            return (severityOrder[aSev] || 99) - (severityOrder[bSev] || 99);
+          });
           
           // Color mapping
           const severityColors = {
-            critical: { bg: '#4a1a1a', border: '#dc3545', text: '#ff6b6b' },
-            high: { bg: '#4a2a1a', border: '#fd7e14', text: '#ffa94d' },
+            critical: { bg: '#3d1a1a', border: '#c82333', text: '#ff6b6b' },
+            high: { bg: '#4a2020', border: '#e74c3c', text: '#ff9999' },
             medium: { bg: '#4a4a1a', border: '#ffc107', text: '#ffd43b' },
             low: { bg: '#2a2a2a', border: '#6c757d', text: '#adb5bd' }
           };
@@ -456,7 +458,14 @@ function renderSecurityIssues() {
   }
   
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-  issues.sort((a, b) => (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99));
+  issues.sort((a, b) => {
+    const aSev = (a.severity || '').toLowerCase();
+    const bSev = (b.severity || '').toLowerCase();
+    return (severityOrder[aSev] || 99) - (severityOrder[bSev] || 99);
+  });
+  
+  // Debug: Log sorted issues
+  console.log('Sorted issues:', issues.map(i => i.severity));
   
   container.innerHTML = issues.map(issue => `
     <div class="issue-card severity-${issue.severity}">
@@ -636,7 +645,16 @@ function exportReport() {
   apiCalls.forEach(call => {
     if (call.securityIssues && Array.isArray(call.securityIssues)) {
       call.securityIssues.forEach(issue => {
-        allIssues.push({ ...issue, url: call.url, method: call.method });
+        allIssues.push({ 
+          ...issue, 
+          url: call.url, 
+          method: call.method,
+          statusCode: call.statusCode,
+          duration: call.duration,
+          requestBody: call.requestBody,
+          responseBody: call.responseBody,
+          responseHeaders: call.responseHeaders
+        });
       });
     }
   });
@@ -650,7 +668,11 @@ function exportReport() {
   
   // Sort issues by severity
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-  allIssues.sort((a, b) => (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99));
+  allIssues.sort((a, b) => {
+    const aSev = (a.severity || '').toLowerCase();
+    const bSev = (b.severity || '').toLowerCase();
+    return (severityOrder[aSev] || 99) - (severityOrder[bSev] || 99);
+  });
   
   // Generate HTML report
   const html = `<!DOCTYPE html>
@@ -673,25 +695,44 @@ function exportReport() {
     .header h1 { color: #007acc; font-size: 32px; margin-bottom: 10px; }
     .header .subtitle { color: #666; font-size: 14px; }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
-    .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
-    .stat-card.success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-    .stat-card.warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-    .stat-card.info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stat-card { background: #f8f9fa; color: #333; padding: 20px; border-radius: 8px; text-align: center; border: 2px solid #e0e0e0; }
+    .stat-card.primary { background: #007acc; color: white; border-color: #005a9e; }
+    .stat-card.success { background: #28a745; color: white; border-color: #1e7e34; }
+    .stat-card.danger { background: #dc3545; color: white; border-color: #bd2130; }
+    .stat-card.warning { background: #ffc107; color: #000; border-color: #d39e00; }
+    .stat-card.critical { background: #c82333; color: white; border-color: #a71d2a; }
+    .stat-card.high { background: #e74c3c; color: white; border-color: #c0392b; }
+    .stat-card.medium { background: #ffc107; color: #000; border-color: #d39e00; }
+    .stat-card.low { background: #6c757d; color: white; border-color: #545b62; }
     .stat-value { font-size: 36px; font-weight: bold; margin-bottom: 5px; }
     .stat-label { font-size: 14px; opacity: 0.9; }
     .section { margin-bottom: 40px; }
     .section-title { font-size: 24px; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
-    .issue-card { background: #fff; border-left: 4px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .issue-card.critical { border-left-color: #dc3545; background: #fff5f5; }
-    .issue-card.high { border-left-color: #fd7e14; background: #fff8f0; }
+    .issue-card { background: #fff; border-left: 4px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.3s ease; }
+    .issue-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.15); transform: translateY(-2px); }
+    .issue-card.critical { border-left-color: #c82333; background: #ffe5e5; }
+    .issue-card.high { border-left-color: #e74c3c; background: #ffebeb; }
     .issue-card.medium { border-left-color: #ffc107; background: #fffbf0; }
     .issue-card.low { border-left-color: #6c757d; background: #f8f9fa; }
     .issue-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .expand-icon { margin-left: auto; font-size: 18px; transition: transform 0.3s ease; }
+    .issue-card.expanded .expand-icon { transform: rotate(180deg); }
+    .issue-details { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .issue-card.expanded .issue-details { max-height: 2000px; }
+    .response-section { margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd; }
+    .response-label { font-weight: bold; color: #666; font-size: 12px; margin-bottom: 5px; }
+    .response-content { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+    .response-meta { display: flex; gap: 15px; margin-bottom: 10px; font-size: 12px; }
     .severity-badge { padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .severity-badge.critical { background: #dc3545; color: white; }
-    .severity-badge.high { background: #fd7e14; color: white; }
+    .severity-badge.critical { background: #c82333; color: white; }
+    .severity-badge.high { background: #e74c3c; color: white; }
     .severity-badge.medium { background: #ffc107; color: #000; }
     .severity-badge.low { background: #6c757d; color: white; }
+    .status-badge { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; margin-left: 5px; }
+    .status-badge.success { background: #28a745; color: white; }
+    .status-badge.redirect { background: #17a2b8; color: white; }
+    .status-badge.client-error { background: #ffc107; color: #000; }
+    .status-badge.server-error { background: #dc3545; color: white; }
     .issue-type { font-size: 12px; color: #666; font-family: monospace; }
     .owasp-tag { font-size: 11px; color: #999; margin-left: auto; }
     .issue-message { color: #333; margin-bottom: 8px; font-size: 14px; }
@@ -723,16 +764,16 @@ function exportReport() {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🐕 API Watchdog Security Report</h1>
+      <h1>API Watchdog Security Report</h1>
       <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
     </div>
 
     <div class="stats">
-      <div class="stat-card info">
+      <div class="stat-card primary">
         <div class="stat-value">${totalCalls}</div>
         <div class="stat-label">Total API Calls</div>
       </div>
-      <div class="stat-card ${allIssues.length === 0 ? 'success' : 'warning'}">
+      <div class="stat-card ${allIssues.length === 0 ? 'success' : 'danger'}">
         <div class="stat-value">${allIssues.length}</div>
         <div class="stat-label">Security Issues</div>
       </div>
@@ -740,7 +781,7 @@ function exportReport() {
         <div class="stat-value">${slowApis}</div>
         <div class="stat-label">Slow APIs (&gt;500ms)</div>
       </div>
-      <div class="stat-card ${healthScore >= 80 ? 'success' : healthScore >= 50 ? 'warning' : 'warning'}">
+      <div class="stat-card ${healthScore >= 80 ? 'success' : healthScore >= 50 ? 'warning' : 'danger'}">
         <div class="stat-value">${healthScore}</div>
         <div class="stat-label">Health Score</div>
       </div>
@@ -750,27 +791,59 @@ function exportReport() {
     <div class="section">
       <h2 class="section-title">🔒 Security Issues Summary</h2>
       <div class="stats">
-        ${criticalIssues > 0 ? `<div class="stat-card warning"><div class="stat-value">${criticalIssues}</div><div class="stat-label">Critical</div></div>` : ''}
-        ${highIssues > 0 ? `<div class="stat-card warning"><div class="stat-value">${highIssues}</div><div class="stat-label">High</div></div>` : ''}
-        ${mediumIssues > 0 ? `<div class="stat-card warning"><div class="stat-value">${mediumIssues}</div><div class="stat-label">Medium</div></div>` : ''}
-        ${lowIssues > 0 ? `<div class="stat-card info"><div class="stat-value">${lowIssues}</div><div class="stat-label">Low</div></div>` : ''}
+        ${criticalIssues > 0 ? `<div class="stat-card critical"><div class="stat-value">${criticalIssues}</div><div class="stat-label">Critical</div></div>` : ''}
+        ${highIssues > 0 ? `<div class="stat-card high"><div class="stat-value">${highIssues}</div><div class="stat-label">High</div></div>` : ''}
+        ${mediumIssues > 0 ? `<div class="stat-card medium"><div class="stat-value">${mediumIssues}</div><div class="stat-label">Medium</div></div>` : ''}
+        ${lowIssues > 0 ? `<div class="stat-card low"><div class="stat-value">${lowIssues}</div><div class="stat-label">Low</div></div>` : ''}
       </div>
     </div>
 
     <div class="section">
       <h2 class="section-title">🚨 Detailed Security Issues</h2>
-      ${allIssues.map(issue => `
-        <div class="issue-card ${issue.severity}">
+      ${allIssues.map((issue, index) => {
+        const statusClass = issue.statusCode >= 200 && issue.statusCode < 300 ? 'success' :
+                           issue.statusCode >= 300 && issue.statusCode < 400 ? 'redirect' :
+                           issue.statusCode >= 400 && issue.statusCode < 500 ? 'client-error' : 'server-error';
+        return `
+        <div class="issue-card ${issue.severity}" onclick="toggleIssue(${index})">
           <div class="issue-header">
             <span class="severity-badge ${issue.severity}">${issue.severity}</span>
+            <span class="status-badge ${statusClass}">${issue.statusCode}</span>
             <span class="issue-type">${issue.type}</span>
             ${issue.owasp ? `<span class="owasp-tag">${issue.owasp}</span>` : ''}
+            <span class="expand-icon">▼</span>
           </div>
           <div class="issue-message">${issue.message}</div>
           <div class="issue-url">${issue.method} ${issue.url}</div>
           ${issue.recommendation ? `<div class="recommendation">💡 <strong>Recommendation:</strong> ${issue.recommendation}</div>` : ''}
+          
+          <div class="issue-details">
+            <div class="response-section">
+              <div class="response-meta">
+                <div><strong>Status Code:</strong> ${issue.statusCode}</div>
+                <div><strong>Duration:</strong> ${issue.duration}ms</div>
+                <div><strong>Method:</strong> ${issue.method}</div>
+              </div>
+              
+              ${issue.requestBody ? `
+                <div class="response-label" style="margin-top: 15px;">📤 Request Payload:</div>
+                <pre class="response-content">${JSON.stringify(issue.requestBody, null, 2)}</pre>
+              ` : ''}
+              
+              ${issue.responseBody ? `
+                <div class="response-label" style="margin-top: 15px;">📥 Response Body:</div>
+                <pre class="response-content">${JSON.stringify(issue.responseBody, null, 2)}</pre>
+              ` : '<div class="response-label" style="margin-top: 15px;">No response body available</div>'}
+              
+              ${issue.responseHeaders && issue.responseHeaders.length > 0 ? `
+                <div class="response-label" style="margin-top: 15px;">📋 Response Headers:</div>
+                <pre class="response-content">${issue.responseHeaders.map(h => `${h.name}: ${h.value}`).join('\n')}</pre>
+              ` : ''}
+            </div>
+          </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
     ` : '<div class="section"><h2 class="section-title">✅ No Security Issues Detected</h2><p style="color: #28a745; font-size: 18px;">All API calls passed security checks!</p></div>'}
 
@@ -832,8 +905,19 @@ function exportReport() {
     <div class="footer">
       <p>Generated by API Watchdog Chrome Extension</p>
       <p>This report can be printed to PDF using your browser's print function (Ctrl+P / Cmd+P)</p>
+      <p style="margin-top: 10px; color: #007acc;">💡 Click on any security issue card to expand and view API response details</p>
     </div>
   </div>
+  
+  <script>
+    function toggleIssue(index) {
+      const cards = document.querySelectorAll('.issue-card');
+      const card = cards[index];
+      if (card) {
+        card.classList.toggle('expanded');
+      }
+    }
+  </script>
 </body>
 </html>`;
 
