@@ -1,4 +1,4 @@
-# 🐕 API Watchdog
+#API Watchdog
 
 A Chrome extension that automatically monitors all API calls made by a website and generates testing analysis, security insights, and quality reports.
 
