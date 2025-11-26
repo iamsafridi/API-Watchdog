@@ -225,12 +225,37 @@ function showApiDetails(index) {
     
     ${call.securityIssues?.length ? `
       <div style="margin-bottom: 20px;">
-        <h3 style="color: #fff;">🔒 Security Issues</h3>
-        ${call.securityIssues.map(issue => `
-          <div style="background: #3d2817; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 4px solid #ffc107; color: #e0e0e0;">
-            <strong style="color: #ffc107;">${issue.severity}:</strong> ${issue.message}
-          </div>
-        `).join('')}
+        <h3 style="color: #fff;">🔒 Security Issues (${call.securityIssues.length})</h3>
+        ${(() => {
+          // Sort by severity
+          const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+          const sortedIssues = [...call.securityIssues].sort((a, b) => 
+            (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99)
+          );
+          
+          // Color mapping
+          const severityColors = {
+            critical: { bg: '#4a1a1a', border: '#dc3545', text: '#ff6b6b' },
+            high: { bg: '#4a2a1a', border: '#fd7e14', text: '#ffa94d' },
+            medium: { bg: '#4a4a1a', border: '#ffc107', text: '#ffd43b' },
+            low: { bg: '#2a2a2a', border: '#6c757d', text: '#adb5bd' }
+          };
+          
+          return sortedIssues.map(issue => {
+            const colors = severityColors[issue.severity] || severityColors.low;
+            return `
+              <div style="background: ${colors.bg}; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 4px solid ${colors.border}; color: #e0e0e0;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                  <strong style="color: ${colors.text}; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">${issue.severity}</strong>
+                  <span style="color: #999; font-size: 11px;">${issue.type}</span>
+                  ${issue.owasp ? `<span style="color: #666; font-size: 10px; margin-left: auto;">${issue.owasp}</span>` : ''}
+                </div>
+                <p style="margin: 0 0 8px 0; color: #e0e0e0; font-size: 13px;">${issue.message}</p>
+                ${issue.recommendation ? `<p style="font-size: 12px; color: #4ec9b0; margin: 0;">💡 ${issue.recommendation}</p>` : ''}
+              </div>
+            `;
+          }).join('');
+        })()}
       </div>
     ` : ''}
     

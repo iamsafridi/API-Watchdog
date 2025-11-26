@@ -169,15 +169,28 @@ button:hover {
   border-left-color: #f48771;
 }
 
-.issue-card.severity-critical { border-left-color: #f14c4c; }
-.issue-card.severity-high { border-left-color: #f48771; }
-.issue-card.severity-medium { border-left-color: #cca700; }
-.issue-card.severity-low { border-left-color: #4ec9b0; }
+.issue-card.severity-critical { 
+  border-left-color: #dc3545; 
+  background: #2a1a1a;
+}
+.issue-card.severity-high { 
+  border-left-color: #fd7e14; 
+  background: #2a2015;
+}
+.issue-card.severity-medium { 
+  border-left-color: #ffc107; 
+  background: #2a2a15;
+}
+.issue-card.severity-low { 
+  border-left-color: #6c757d; 
+  background: #252526;
+}
 
 .issue-header {
   display: flex;
   gap: 10px;
   margin-bottom: 8px;
+  align-items: center;
 }
 
 .severity {
@@ -185,8 +198,29 @@ button:hover {
   border-radius: 4px;
   font-weight: bold;
   font-size: 11px;
-  background: #f48771;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Severity color coding */
+.issue-card.severity-critical .severity {
+  background: #dc3545;
+  color: #fff;
+}
+
+.issue-card.severity-high .severity {
+  background: #fd7e14;
   color: #000;
+}
+
+.issue-card.severity-medium .severity {
+  background: #ffc107;
+  color: #000;
+}
+
+.issue-card.severity-low .severity {
+  background: #6c757d;
+  color: #fff;
 }
 
 .issue-message {
