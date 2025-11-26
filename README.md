@@ -2,30 +2,6 @@
 
 A Chrome extension that automatically monitors all API calls made by a website and generates testing analysis, security insights, and quality reports.
 
-## Features
-
-### ✅ Implemented
-- **Auto-capture API calls** - Monitors all HTTP requests using Chrome's webRequest API
-- **Security analysis** - Detects common security issues:
-  - Non-HTTPS endpoints
-  - Tokens/secrets in URLs
-  - Missing security headers (HSTS, X-Content-Type-Options)
-  - CORS misconfigurations
-- **Performance monitoring** - Tracks response times and flags slow APIs (>500ms)
-- **Page-to-API mapping** - Shows which pages trigger which APIs
-- **Health scoring** - Calculates overall API health based on security and performance
-- **Export reports** - Download JSON reports with all captured data
-- **Test case generation** - Auto-generate test scenarios for each API endpoint
-
-### 🚀 Future Enhancements
-- PDF report generation
-- Postman collection export
-- API dependency tree visualization
-- Advanced payload inspection
-- Rate limiting detection
-- SQL injection pattern detection
-- Custom security rules engine
-
 ## Installation
 
 1. Clone or download this repository
