@@ -472,7 +472,92 @@ function renderPerformance() {
 
 function renderPageMapping() {
   const container = document.getElementById('mappingList');
-  container.innerHTML = '<p class="empty">Page mapping data</p>';
+  
+  // Group API calls by page URL
+  const pageMap = {};
+  
+  apiCalls.forEach(call => {
+    try {
+      const url = new URL(call.url);
+      const pageKey = call.pageUrl || url.origin;
+      
+      // Extract route from page URL
+      let route = '/';
+      if (call.pageUrl) {
+        try {
+          const pageUrlObj = new URL(call.pageUrl);
+          route = pageUrlObj.pathname || '/';
+        } catch (e) {
+          route = call.pageUrl;
+        }
+      }
+      
+      if (!pageMap[route]) {
+        pageMap[route] = [];
+      }
+      
+      // Check if this API is already in the list for this route
+      const exists = pageMap[route].some(api => 
+        api.url === call.url && api.method === call.method
+      );
+      
+      if (!exists) {
+        pageMap[route].push({
+          url: call.url,
+          method: call.method,
+          statusCode: call.statusCode,
+          duration: call.duration,
+          count: 1
+        });
+      } else {
+        // Increment count
+        const api = pageMap[route].find(api => 
+          api.url === call.url && api.method === call.method
+        );
+        if (api) api.count++;
+      }
+    } catch (e) {
+      console.error('Error mapping page:', e);
+    }
+  });
+  
+  if (Object.keys(pageMap).length === 0) {
+    container.innerHTML = '<p class="empty">No page mapping available yet. Navigate different routes to see mapping.</p>';
+    return;
+  }
+  
+  // Sort routes alphabetically
+  const sortedRoutes = Object.keys(pageMap).sort();
+  
+  container.innerHTML = sortedRoutes.map(route => {
+    const apis = pageMap[route];
+    
+    return `
+      <div class="mapping-card" style="margin-bottom: 15px;">
+        <h3 class="page-url" style="color: #4ec9b0; margin-bottom: 10px;">📄 ${route}</h3>
+        <div class="api-count" style="color: #858585; font-size: 12px; margin-bottom: 10px;">
+          🔗 ${apis.length} unique API endpoint${apis.length !== 1 ? 's' : ''}
+        </div>
+        <ul class="api-endpoints" style="list-style: none; padding: 0;">
+          ${apis.map(api => {
+            const urlObj = new URL(api.url);
+            const endpoint = urlObj.pathname + urlObj.search;
+            const statusClass = Math.floor(api.statusCode / 100);
+            
+            return `
+              <li style="padding: 8px; margin-bottom: 5px; background: #252526; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                <span class="method ${api.method}" style="flex-shrink: 0;">${api.method}</span>
+                <span style="flex: 1; font-family: monospace; font-size: 11px; color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${endpoint}">${endpoint}</span>
+                <span class="status status-${statusClass}xx" style="flex-shrink: 0;">${api.statusCode}</span>
+                <span style="color: #858585; font-size: 11px; flex-shrink: 0;">${api.duration}ms</span>
+                ${api.count > 1 ? `<span style="background: #007acc; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; flex-shrink: 0;">×${api.count}</span>` : ''}
+              </li>
+            `;
+          }).join('')}
+        </ul>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderTools() {

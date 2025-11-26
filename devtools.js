@@ -64,8 +64,23 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
   
   if (!url || !method) return;
   
-  // Only capture API calls
-  if (!url.includes('/api/')) return;
+  // Only capture API calls (XHR/Fetch requests)
+  // Filter by common API patterns and content types
+  const isApiCall = 
+    url.includes('/api/') ||
+    url.includes('/v1/') ||
+    url.includes('/v2/') ||
+    url.includes('/v3/') ||
+    url.includes('/graphql') ||
+    url.includes('/rest/') ||
+    url.includes('/data/') ||
+    request.request?.headers?.some(h => 
+      h.name.toLowerCase() === 'content-type' && 
+      h.value.includes('application/json')
+    ) ||
+    request.response?.content?.mimeType?.includes('application/json');
+  
+  if (!isApiCall) return;
   
   console.log('DevTools: Captured', method, url);
   
@@ -81,31 +96,35 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
         }
       }
       
-      // Send to background
-      try {
-        chrome.runtime.sendMessage({
-          type: 'API_CAPTURED',
-          data: {
-            url: url,
-            method: method,
-            statusCode: request.response?.status || 0,
-            duration: Math.round((request.timings?.wait || 0) + (request.timings?.receive || 0)),
-            timestamp: Date.now(),
-            responseHeaders: (request.response?.headers || []).map(h => ({
-              name: h.name,
-              value: h.value
-            })),
-            responseBody: responseBody
-          }
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            // Silently ignore - extension may have been reloaded
-            return;
-          }
-        });
-      } catch (e) {
-        // Silently ignore - extension context invalidated
-      }
+      // Get current page URL
+      chrome.devtools.inspectedWindow.eval('window.location.href', (pageUrl) => {
+        // Send to background
+        try {
+          chrome.runtime.sendMessage({
+            type: 'API_CAPTURED',
+            data: {
+              url: url,
+              method: method,
+              statusCode: request.response?.status || 0,
+              duration: Math.round((request.timings?.wait || 0) + (request.timings?.receive || 0)),
+              timestamp: Date.now(),
+              pageUrl: pageUrl || url, // Include the page URL
+              responseHeaders: (request.response?.headers || []).map(h => ({
+                name: h.name,
+                value: h.value
+              })),
+              responseBody: responseBody
+            }
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              // Silently ignore - extension may have been reloaded
+              return;
+            }
+          });
+        } catch (e) {
+          // Silently ignore - extension context invalidated
+        }
+      });
     } catch (e) {
       console.error('DevTools: Error:', e);
     }
